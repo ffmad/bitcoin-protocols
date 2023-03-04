@@ -5,9 +5,8 @@ TODO:
 
 ---
 
----
-title: Installation
----
+## Installation
+
 
 On Linux and OS X, install as a non-root sudo-er from home directory.
 
@@ -16,40 +15,39 @@ On Linux and OS X, install as a non-root sudo-er from home directory.
 On all OS, clone federatednode repo and enter cloned directory:
 
 ```
-git clone https://github.com/CounterpartyXCP/federatednode.git
-cd federatednode
+git clone https://github.com/ffmad/bitcoin-protocols.git
+cd bitcoin-protocols
 ```
 
 On Linux and OS X:
 
 ```
-sudo ln -sf `pwd`/fednode.py /usr/local/bin/fednode
+sudo ln -sf `pwd`/btc.py /usr/local/bin/btc
 ```
 
 On Windows (if using Docker Quickstart Terminal, a.k.a MINGW64):
 ```
 mkdir ~/bin
-echo "python.exe \"`pwd`\\fednode.py\" \$*" > ~/bin/fednode
-chmod +x ~/bin/fednode
+echo "python.exe \"`pwd`\\btc.py\" \$*" > ~/bin/btc
+chmod +x ~/bin/btc
 ```
 
 On Windows (if using Windows Command prompt):
 
 ```
-> C:\Windows\fednode.bat echo python.exe %CD%\fednode.py \%*
+> C:\Windows\btc.bat echo python.exe %CD%\btc.py \%*
 ```
 
 **Build and link the containers**
 
 Run the following command:
 ```
-fednode install <CONFIG> <BRANCH>
+btc install <CONFIG> <BRANCH>
 ```
 
 Where `<CONFIG>` is one of the following:
 
 * **`base`** if you want to run `counterparty-server` and `bitcoind` only
-* **`counterblock`** if you want to run everything in `base`, with the addition of `counterblock` and its dependencies (`mongodb` and `redis`)
 * **`full`** if you would like to run a *full federated node configuration*, which is all services on the [list above](#services)
 
 And where `<BRANCH>` is one of the following:
@@ -60,10 +58,10 @@ And where `<BRANCH>` is one of the following:
 For example:
 ```
 # install a base configuration for the master branch
-fednode install base master
+btc install base master
 
 # install a full configuration for the develop branch
-fednode install full develop
+btc install full develop
 ```
 In some cases (slow host, limited bandwidth), you may experience a failure to install due to download timeouts which happen because of network unstability. In that case consider changing Docker's `max-concurrent-downloads` value to 1 or 2 from default 3. To do that create a custom `/etc/docker/daemon.json` daemon options file and restart Docker service.
 
@@ -72,14 +70,14 @@ As mentioned earlier, the install script may stop if ports used by Federated Nod
 For example, the original mongodb can be reconfigured to listen on port 28018 and counterblock's mongodb can use the default port 27017. The Federated Node install script makes it possible to specify the interface used by its mongodb container (example below), but it currently does not have the ability to do this for other services or get around port conflicts.
 
 ```
-fednode install --mongodb-interface 127.0.0.2 counterblock master
+btc install --mongodb-interface 127.0.0.2 counterblock master
 ```
 
 **Wait for initial sync**
 
 After installation, the services will be automatically started. To check the status, issue:
 ```
-fednode ps
+btc ps
 ```
 
 If you have existing instances of Bitcoin Core (either mainnet or testnet), at this point you could stop all services listed in `fednode ps` output, change configuration files (of counterparty and counterblock, for example) and point them to your existing Bitcoin Core. Configuration files can be found in various service directories located under federatednode/config.
@@ -88,8 +86,8 @@ Once the containers are installed and running, keep in mind that it will take so
 
 You may check the sync status by tailing the appropriate service logs, e.g. for Bitcoin Core and Counterparty server on mainnet:
 ```
-fednode tail bitcoin
-fednode tail counterparty
+btc tail bitcoin
+btc tail counterparty
 ```
 
 <a name="accessing"></a>**Access the system**
