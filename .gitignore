@@ -36,8 +36,8 @@ nosetests.xml
 .project
 .pydevproject
 
-# Fednode config
-.fednode.config
+# Bitcoin protocols config
+.btc.config
 
 # Auto-created data dir
 data

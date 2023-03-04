@@ -57,7 +57,7 @@ def do_security_setup():
 
     # set up fail2ban
     runcmd("apt-get -y install fail2ban")
-    runcmd("install -m 0644 -o root -g root -D %s/fail2ban.jail.conf /etc/fail2ban/jail.d/counterblock.conf" % DIST_PATH)
+    runcmd("install -m 0644 -o root -g root -D %s/fail2ban.jail.conf" % DIST_PATH)
     runcmd("service fail2ban restart")
 
     # set up psad (this will install postfix, which will prompt the user)
@@ -89,7 +89,7 @@ def do_security_setup():
     # auditd
     # note that auditd will need a reboot to fully apply the rules, due to it operating in "immutable mode" by default
     runcmd("apt-get -y install auditd audispd-plugins")
-    runcmd("install -m 0640 -o root -g root -D %s/audit.rules /etc/audit/rules.d/counterblock.rules" % DIST_PATH)
+    runcmd("install -m 0640 -o root -g root -D" % DIST_PATH)
     modify_config(r'^USE_AUGENRULES=.*?$', 'USE_AUGENRULES="yes"', '/etc/default/auditd')
     runcmd("service auditd restart")
 

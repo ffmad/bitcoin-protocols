@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-fednode.py: script to set up and manage a Counterparty federated node
+btc.py: script to set up and manage a Counterparty federated node
 '''
 
 import sys
@@ -18,38 +18,33 @@ import difflib
 from datetime import datetime, timezone
 
 
-VERSION="2.3.0"
+VERSION="2.4.0"
 
-PROJECT_NAME = "federatednode"
+PROJECT_NAME = "bitcoinprotocols"
 CURDIR = os.getcwd()
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-FEDNODE_CONFIG_FILE = ".fednode.config"
-FEDNODE_CONFIG_PATH = os.path.join(SCRIPTDIR, FEDNODE_CONFIG_FILE)
+BTC_CONFIG_FILE = ".btc.config"
+BTC_CONFIG_PATH = os.path.join(SCRIPTDIR, BTC_CONFIG_FILE)
 
 REPO_BASE_HTTPS = "https://github.com/CounterpartyXCP/{}.git"
 REPO_BASE_SSH = "git@github.com:CounterpartyXCP/{}.git"
 REPOS_BASE = ['counterparty-lib', 'counterparty-cli', 'addrindexrs', 'xcp-proxy', 'http-addrindexrs']
-REPOS_COUNTERBLOCK = REPOS_BASE + ['counterblock']
-REPOS_FULL = REPOS_COUNTERBLOCK + ['counterwallet', 'armory-utxsvr', 'xcp-proxy']
+REPOS_FULL = REPOS_BASE
 
 HOST_PORTS_USED = {
     'base': [8332, 18332, 8432, 18432, 4000, 14000, 8097, 18097, 8098, 18098],
     'base_extbtc': [8432, 18432, 4000, 14000, 8097, 18097, 8098, 18098],
-    'counterblock': [8332, 18332, 8432, 18432, 4000, 14000, 8097, 18097, 8098, 18098, 4100, 14100, 27017],
-    'full': [8332, 18332, 8432, 18432, 4000, 14000, 8097, 18097, 8098, 18098, 4100, 14100, 27017, 80, 443]
+    'full': [8332, 18332, 8432, 18432, 4000, 14000, 8097, 18097, 8098, 18098, 80, 443]
 }
 VOLUMES_USED = {
     'base': ['bitcoin-data', 'addrindexrs-data', 'counterparty-data'],
     'base_extbtc': ['addrindexrs-data', 'counterparty-data'],
-    'counterblock': ['bitcoin-data', 'addrindexrs-data', 'counterparty-data', 'counterblock-data', 'mongodb-data'],
-    'full': ['bitcoin-data', 'addrindexrs-data', 'counterparty-data', 'counterblock-data', 'mongodb-data', 'armory-data']
+    'full': ['bitcoin-data', 'addrindexrs-data', 'counterparty-data']
 }
 UPDATE_CHOICES = ['addrindexrs', 'addrindexrs-testnet',
-                  'counterparty', 'counterparty-testnet', 'counterblock',
-                  'counterblock-testnet', 'counterwallet', 'armory-utxsvr',
-                  'armory-utxsvr-testnet', 'xcp-proxy', 'xcp-proxy-testnet',
+                  'counterparty', 'counterparty-testnet', 'xcp-proxy', 'xcp-proxy-testnet',
                   'http-addrindexrs', 'http-addrindexrs-testnet']
-REPARSE_CHOICES = ['counterparty', 'counterparty-testnet', 'counterblock', 'counterblock-testnet']
+REPARSE_CHOICES = ['counterparty', 'counterparty-testnet']
 ROLLBACK_CHOICES = ['counterparty', 'counterparty-testnet']
 VALIDATE_CHOICES = ['counterparty', 'counterparty-testnet']
 VACUUM_CHOICES = ['counterparty', 'counterparty-testnet']
@@ -73,16 +68,11 @@ CONFIGCHECK_FILES_BASE = [
     ['counterparty', 'server.conf.default', 'server.conf'],
     ['counterparty', 'server.testnet.conf.default', 'server.testnet.conf'],
 ];
-CONFIGCHECK_FILES_COUNTERBLOCK = CONFIGCHECK_FILES_BASE + [
-    ['counterblock', 'server.conf.default', 'server.conf'],
-    ['counterblock', 'server.testnet.conf.default', 'server.testnet.conf'],
-]
-CONFIGCHECK_FILES_FULL = CONFIGCHECK_FILES_COUNTERBLOCK;
+CONFIGCHECK_FILES_FULL = CONFIGCHECK_FILES_BASE;
 CONFIGCHECK_FILES = {
     'base_extbtc': CONFIGCHECK_FILES_BASE_EXTERNAL_BITCOIN,
     'base': CONFIGCHECK_FILES_BASE,
-    'counterblock': CONFIGCHECK_FILES_COUNTERBLOCK,
-    'full': CONFIGCHECK_FILES_FULL,
+    'full': CONFIGCHECK_FILES_BASE,
 }
 # set in setup_env()
 IS_WINDOWS = None
@@ -93,7 +83,7 @@ DOCKER_CONFIG_PATH = None
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(prog='fednode', description='fednode utility v{}'.format(VERSION))
+    parser = argparse.ArgumentParser(prog='btc', description='btc utility v{}'.format(VERSION))
     parser.add_argument("-V", '--version', action='version', version='%(prog)s {}'.format(VERSION))
     parser.add_argument("-d", "--debug", action='store_true', default=False, help="increase output verbosity")
     parser.add_argument("--no-pull", action='store_true', default=False, help="use only local docker images (for debugging)")
@@ -101,8 +91,8 @@ def parse_args():
     subparsers = parser.add_subparsers(help='help on modes', dest='command')
     subparsers.required = True
 
-    parser_install = subparsers.add_parser('install', help="install fednode services")
-    parser_install.add_argument("config", choices=['base', 'base_extbtc', 'counterblock', 'full'], help="The name of the service configuration to utilize")
+    parser_install = subparsers.add_parser('install', help="install btc services")
+    parser_install.add_argument("config", choices=['base', 'base_extbtc', 'full'], help="The name of the service configuration to utilize")
     parser_install.add_argument("branch", choices=['master', 'develop'], help="The name of the git branch to utilize for the build (note that 'master' pulls the docker 'latest' tags)")
     parser_install.add_argument("--use-ssh-uris", action="store_true", help="Use SSH URIs for source checkouts from Github, instead of HTTPS URIs")
     parser_install.add_argument("--mongodb-interface", default="127.0.0.1",
@@ -110,18 +100,18 @@ def parse_args():
     parser_install.add_argument("--no-bootstrap", action="store_true", help="It doesn't download any bootstrap, so the parse will begin from scratch")
     
 
-    parser_uninstall = subparsers.add_parser('uninstall', help="uninstall fednode services")
+    parser_uninstall = subparsers.add_parser('uninstall', help="uninstall btc services")
 
-    parser_start = subparsers.add_parser('start', help="start fednode services")
+    parser_start = subparsers.add_parser('start', help="start btc services")
     parser_start.add_argument("services", nargs='*', default='', help="The service or services to start (or blank for all services)")
 
-    parser_stop = subparsers.add_parser('stop', help="stop fednode services")
+    parser_stop = subparsers.add_parser('stop', help="stop btc services")
     parser_stop.add_argument("services", nargs='*', default='', help="The service or services to stop (or blank for all services)")
 
-    parser_restart = subparsers.add_parser('restart', help="restart fednode services")
+    parser_restart = subparsers.add_parser('restart', help="restart btc services")
     parser_restart.add_argument("services", nargs='*', default='', help="The service or services to restart (or blank for all services)")
 
-    parser_reparse = subparsers.add_parser('reparse', help="reparse a counterparty-server or counterblock service")
+    parser_reparse = subparsers.add_parser('reparse', help="reparse a counterparty-server service")
     parser_reparse.add_argument("service", choices=REPARSE_CHOICES, help="The name of the service for which to kick off a reparse")
 
     parser_rollback = subparsers.add_parser('rollback', help="rollback a counterparty-server")
@@ -136,11 +126,11 @@ def parse_args():
 
     parser_ps = subparsers.add_parser('ps', help="list installed services")
 
-    parser_tail = subparsers.add_parser('tail', help="tail fednode logs")
+    parser_tail = subparsers.add_parser('tail', help="tail btc logs")
     parser_tail.add_argument("services", nargs='*', default='', help="The name of the service or services whose logs to tail (or blank for all services)")
     parser_tail.add_argument("-n", "--num-lines", type=int, default=50, help="Number of lines to tail")
 
-    parser_logs = subparsers.add_parser('logs', help="tail fednode logs")
+    parser_logs = subparsers.add_parser('logs', help="tail btc logs")
     parser_logs.add_argument("services", nargs='*', default='', help="The name of the service or services whose logs to view (or blank for all services)")
 
     parser_exec = subparsers.add_parser('exec', help="execute a command on a specific container")
@@ -150,11 +140,11 @@ def parse_args():
     parser_shell = subparsers.add_parser('shell', help="get a shell on a specific service container")
     parser_shell.add_argument("service", choices=SHELL_CHOICES, help="The name of the service to shell into")
 
-    parser_update = subparsers.add_parser('update', help="upgrade fednode services (i.e. update source code and restart the container, but don't update the container itself')")
+    parser_update = subparsers.add_parser('update', help="upgrade btc services (i.e. update source code and restart the container, but don't update the container itself')")
     parser_update.add_argument("-n", "--no-restart", action="store_true", help="Don't restart the container after updating the code'")
     parser_update.add_argument("services", nargs='*', default='', help="The name of the service or services to update (or blank to for all applicable services)")
 
-    parser_rebuild = subparsers.add_parser('rebuild', help="rebuild fednode services (i.e. remove and refetch/install docker containers)")
+    parser_rebuild = subparsers.add_parser('rebuild', help="rebuild btc services (i.e. remove and refetch/install docker containers)")
     parser_rebuild.add_argument("services", nargs='*', default='', help="The name of the service or services to rebuild (or blank for all services)")
     parser_rebuild.add_argument("--mongodb-interface", default="127.0.0.1")
     parser_rebuild.add_argument("--no-cache", action="store_true", help="Rebuilds service or services images from scratch before installing containers")
@@ -165,24 +155,20 @@ def parse_args():
 
     return parser.parse_args()
 
-
 def write_config(config):
-    cfg_file = open(FEDNODE_CONFIG_PATH, 'w')
+    cfg_file = open(BTC_CONFIG_PATH, 'w')
     config.write(cfg_file)
     cfg_file.close()
 
-
 def run_compose_cmd(cmd):
     assert DOCKER_CONFIG_PATH
-    assert os.environ['FEDNODE_RELEASE_TAG']
+    assert os.environ['BTC_RELEASE_TAG']
     return os.system("{} docker-compose -f {} -p {} {}".format(SUDO_CMD, DOCKER_CONFIG_PATH, PROJECT_NAME, cmd))
-
 
 def is_port_open(port):
     # TCP ports only
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     return sock.connect_ex(('127.0.0.1', port)) == 0  # returns True if the port is open
-
 
 def setup_env():
     global IS_WINDOWS
@@ -208,10 +194,9 @@ def setup_env():
         print("This script requires root access (via sudo) to run. Please enter your sudo password below.")
         os.system("bash -c 'sudo whoami > /dev/null'")
 
-
 def is_container_running(service, abort_on_not_exist=True):
     try:
-        container_running = subprocess.check_output('{} docker inspect --format="{{{{ .State.Running }}}}" federatednode_{}_1'.format(SUDO_CMD, service), shell=True).decode("utf-8").strip()
+        container_running = subprocess.check_output('{} docker inspect --format="{{{{ .State.Running }}}}" btccomponent_{}_1'.format(SUDO_CMD, service), shell=True).decode("utf-8").strip()
         container_running = container_running == 'true'
     except subprocess.CalledProcessError:
         container_running = None
@@ -219,7 +204,6 @@ def is_container_running(service, abort_on_not_exist=True):
             print("Container {} doesn't seem to exist'".format(service))
             sys.exit(1)
     return container_running
-
 
 def get_docker_volume_path(volume_name):
     try:
@@ -291,11 +275,11 @@ def main():
 
     # for all other commands
     # if config doesn't exist, only the 'install' command may be run
-    config_existed = os.path.exists(FEDNODE_CONFIG_PATH)
+    config_existed = os.path.exists(BTC_CONFIG_PATH)
     config = configparser.ConfigParser()
     if not config_existed:
         if args.command != 'install':
-            print("config file {} does not exist. Please run the 'install' command first".format(FEDNODE_CONFIG_FILE))
+            print("config file {} does not exist. Please run the 'install' command first".format(BTC_CONFIG_FILE))
             sys.exit(1)
 
         # write default config
@@ -305,13 +289,13 @@ def main():
         write_config(config)
 
     # load and read config
-    assert os.path.exists(FEDNODE_CONFIG_PATH)
-    config.read(FEDNODE_CONFIG_PATH)
+    assert os.path.exists(BTC_CONFIG_PATH)
+    config.read(BTC_CONFIG_PATH)
     build_config = config.get('Default', 'config')
     docker_config_file = "docker-compose.{}.yml".format(build_config)
     DOCKER_CONFIG_PATH = os.path.join(SCRIPTDIR, docker_config_file)
     repo_branch = config.get('Default', 'branch')
-    os.environ['FEDNODE_RELEASE_TAG'] = 'latest' if repo_branch == 'master' else repo_branch
+    os.environ['BTC_RELEASE_TAG'] = 'latest' if repo_branch == 'master' else repo_branch
     os.environ['HOSTNAME_BASE'] = socket.gethostname()
     os.environ['MONGODB_HOST_INTERFACE'] = getattr(args, 'mongodb_interface', "127.0.0.1")
     os.environ["NO_BOOTSTRAP"] = "true" if hasattr(args, "no_bootstrap") and args.no_bootstrap else "false"
@@ -329,7 +313,7 @@ def main():
                 sys.exit(1)
 
         # check out the necessary source trees (don't use submodules due to detached HEAD and other problems)
-        REPOS = REPOS_BASE if build_config == 'base' else (REPOS_COUNTERBLOCK if build_config == 'counterblock' else REPOS_FULL)
+        REPOS = REPOS_BASE if build_config == 'base' else REPOS_FULL
         for repo in REPOS:
             repo_url = REPO_BASE_SSH.format(repo) if args.use_ssh_uris else REPO_BASE_HTTPS.format(repo)
             repo_dir = os.path.join(SCRIPTDIR, "src", repo)
@@ -375,7 +359,7 @@ def main():
         run_compose_cmd("up -d")
     elif args.command == 'uninstall':
         run_compose_cmd("down")
-        os.remove(FEDNODE_CONFIG_PATH)
+        os.remove(BTC_CONFIG_PATH)
     elif args.command == 'start':
         run_compose_cmd("start {}".format(' '.join(args.services)))
     elif args.command == 'stop':
@@ -405,11 +389,11 @@ def main():
             cmd = args.cmd
         else:
             cmd = '"{}"'.format(' '.join(args.cmd).replace('"', '\\"'))
-        os.system("{} docker exec -i -t federatednode_{}_1 bash -c {}".format(SUDO_CMD, args.service, cmd))
+        os.system("{} docker exec -i -t btccomponent_{}_1 bash -c {}".format(SUDO_CMD, args.service, cmd))
     elif args.command == 'shell':
         container_running = is_container_running(args.service)
         if container_running:
-            os.system("{} docker exec -i -t federatednode_{}_1 bash".format(SUDO_CMD, args.service))
+            os.system("{} docker exec -i -t btccomponent_{}_1 bash".format(SUDO_CMD, args.service))
         else:
             print("Container is not running -- creating a transient container with a 'bash' shell entrypoint...")
             run_compose_cmd("run --no-deps --rm --entrypoint bash {}".format(args.service))
@@ -448,24 +432,13 @@ def main():
                         os.system(git_cmd)
 
                     # delete installed egg (to force egg recreate and deps re-check on next start)
-                    if service_base in ('counterparty', 'counterblock', 'armory-utxsvr'):
+                    if service_base in ('counterparty', 'armory-utxsvr'):
                         for path in glob.glob(os.path.join(service_dir_path, "*.egg-info")):
                             print("Removing egg path {}".format(path))
                             if not IS_WINDOWS:  # have to use root
                                 os.system("{} bash -c \"rm -rf {}\"".format(SUDO_CMD, path))
                             else:
                                 shutil.rmtree(path)
-
-                if service_base == 'counterwallet' and os.path.exists(os.path.join(SCRIPTDIR, "src", "counterwallet")):  # special case
-                    transifex_cfg_path = os.path.join(os.path.expanduser("~"), ".transifex")
-                    if os.path.exists(transifex_cfg_path):
-                        os.system("{} docker cp {} federatednode_counterwallet_1:/root/.transifex".format(SUDO_CMD, transifex_cfg_path))
-                    os.system("{} docker exec -i -t federatednode_counterwallet_1 bash -c \"cd /counterwallet/src ".format(SUDO_CMD) +
-                              "&& bower --allow-root update && cd /counterwallet && npm update && grunt build\"")
-                    if not os.path.exists(transifex_cfg_path):
-                        print("NOTE: Did not update locales because there is no .transifex file in your home directory")
-                        print("If you want locales compiled, sign up for transifex and create this file to" +
-                              " contain 'your_transifex_username:your_transifex_password'")
 
             # and restart container
             if not args.no_restart:

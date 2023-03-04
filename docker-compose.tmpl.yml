@@ -3,7 +3,6 @@ version: '2'
 # Data volumes defined in these services (which must be defined in child templates):
 # bitcoin-data
 # counterparty-data
-# counterblock-data
 # armory-data
 # mongodb-data
 
@@ -115,42 +114,9 @@ services:
       - PARAMS=--config-file=/root/.config/counterparty/server.testnet.conf
       - BTC_NETWORK=testnet
       - NO_BOOTSTRAP=${NO_BOOTSTRAP}
-      
-  counterblock-base:
-    build:
-      context: ./src/counterblock
-    volumes:
-      - ./config/counterblock:/root/.config/counterblock
-      - counterblock-data:/root/.local/share/counterblock
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "30m"
-        max-file: "50"
-    restart: "unless-stopped"    
-
-  counterblock-base-mainnet:
-    hostname: ${HOSTNAME_BASE}-cb
-    extends:
-      service: counterblock-base
-    ports:
-      - "4100:4100"
-    environment:
-      - PARAMS=--config-file=/root/.config/counterblock/server.conf
-
-  counterblock-base-testnet:
-    hostname: ${HOSTNAME_BASE}-cb-t
-    extends:
-      service: counterblock-base
-    ports:
-      - "14100:14100"
-      - "14101:14101"
-      - "14102:14102"
-    environment:
-      - PARAMS=--config-file=/root/.config/counterblock/server.testnet.conf
 
   armory-utxsvr-base:
-    image: counterparty/armory-utxsvr:${FEDNODE_RELEASE_TAG}
+    image: counterparty/armory-utxsvr:${BTC_RELEASE_TAG}
     volumes:
       - ./src/armory-utxsvr:/armory-utxsvr
       - armory-data:/root/.armory
@@ -177,22 +143,6 @@ services:
       - BITCOIND_URL=http://rpc:rpc@bitcoin-testnet:18332
       - RPC_HOST=0.0.0.0
       - PARAMS=--testnet
-
-  counterwallet-base:
-    hostname: ${HOSTNAME_BASE}-cw
-    build:
-      context: ./src/counterwallet
-    volumes:
-      - ./config/counterwallet/ssl:/ssl_config
-      - counterblock-data:/counterblock_data
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "30m"
-        max-file: "30"
-    ports:
-      - "80:80"
-      - "443:443"
 
   mongodb-base:
     hostname: ${HOSTNAME_BASE}-mongo
