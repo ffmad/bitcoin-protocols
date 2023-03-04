@@ -1,4 +1,8 @@
-[![Slack Status](http://slack.counterparty.io/badge.svg)](http://slack.counterparty.io)
+TODO: 
+- remove the unecessary docker images
+- upgrade the docker images ubuntu versions
+- add an ordinal image
+
 
 **All-in-one Counterparty Federated Node Build System (`federatednode`)**
 
